@@ -1,0 +1,8 @@
+# Exclude raw AIS telemetry datasets from git index
+data/raw/extracted/*.csv
+
+# Exclude compiled runtime cache metrics
+output/*.png
+__pycache__/
+.pytest_cache/
+*.DS_Store
