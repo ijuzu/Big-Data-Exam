@@ -22,17 +22,17 @@ To locate two vessels that either collided or experienced the close physical pro
 ## Repository Structure
 
 ├── src/
-│ ├── main.py # Spark pipeline entry point
-│ ├── preprocessing.py # Cleaning, filtering, anomaly removal
-│ ├── collision.py # Collision detection logic
-│ └── visualization.py # Trajectory plotting
+│   ├── main.py               # Pipeline entry point (Spark job)
+│   ├── preprocessing.py      # Data cleaning, filtering, anomaly removal
+│   ├── collision.py          # Collision detection logic (grid + CPA)
+│   └── visualization.py      # Trajectory plotting (Matplotlib)
 │
 ├── data/
-│ └── raw/extracted/ # AIS CSV files (Dec 2021)
+│   └── raw/extracted/        # AIS CSV files (Dec 2021)
 │
-├── output/ # Generated results (created from Docker container)
-│ ├── results.txt
-│ └── collision_trajectory.png
+├── output/
+│   ├── results.txt
+│   └── collision_trajectory.png
 │
 ├── Dockerfile
 ├── docker-compose.yml
@@ -85,7 +85,7 @@ spark-submit \
  
 ## Docker Image
 
-The Docker image is available on Docker Hub:
+The container is also available on Docker Hub:
 
 ijuzu/ais-collision:latest
 
@@ -110,21 +110,22 @@ This contains:
 output/collision_trajectory.png shows both vessels' trajectories 10 minutes before and after the collision. 
 
 ## Methodology 
-1. AIS CSV files were loaded using Spark, and the columns were normalized with snake_case. 
-2. Filtering & Anomaly Removal
+
+AIS CSV files were loaded using Spark, and the columns were normalized with snake_case. 
+
+Filtering & Anomaly Removal:
 - Filtering of dirty MMSIs was done
 - Vessels were restricted to just Class A vehicles
 - Only vessels “under way” (engine or sailing) are included
-- Speed filter: reatins moving vessels only (1 ≤ SOG ≤ 40 knots)
+- Speed filter: retains moving vessels only (1 ≤ SOG ≤ 40 knots)
 - Tug/pilot/rescue-related vessels are excluded
 - Bounding box pre-filter: this ensures that only vessels in haversine-based 50 nautical mile radius filter determined by the project requirements are viewed for analysis 
 - Removes teleportation anomalies using a speed threshold (> 60 knots)
 - Since pings occur every few seconds, it was decided to create 30-second time buckets for these 
 
-4. Collision Detection Strategy
-
-To avoid O(n²) complexity:
-- Spacial grid bucketing using 0.02° grid cells
+Collision Detection Strategy:
+For optimization, O(n²) complexity is avoided by: 
+- Spatial grid bucketing using 0.02° grid cells
 - Time bucketing (30 seconds) 
 - Local neighborhood joins (3x3 grid expansion)
 
