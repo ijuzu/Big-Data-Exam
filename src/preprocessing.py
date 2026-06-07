@@ -1,12 +1,3 @@
-"""
-preprocessing.py
-────────────────
-Optimized AIS preprocessing pipeline:
-- reduced shuffle stages
-- consistent time bucketing
-- removal of redundant aggregation DAG
-"""
-
 import pyspark.sql.functions as F
 from pyspark.sql.window import Window
 from pyspark.sql.types import DoubleType
@@ -16,8 +7,6 @@ CENTER_LAT = 55.225000
 CENTER_LON = 14.245000
 RADIUS_KM  = 92.6
 
-
-# ─────────────────────────────────────────────────────────────────────────────
 def load_data(spark, path: str):
     df = spark.read.csv(path, header=True, inferSchema=True)
 
@@ -35,12 +24,8 @@ def load_data(spark, path: str):
 
     return df
 
-
-# ─────────────────────────────────────────────────────────────────────────────
+# Filtering + ensuring timestamp correct 
 def filter_area_and_time(df):
-    """
-    3-stage spatial filter with early pruning.
-    """
 
     df = df.withColumn("timestamp",
                        F.coalesce(
@@ -56,7 +41,6 @@ def filter_area_and_time(df):
 
     df = df.dropna(subset=["timestamp", "latitude", "longitude", "mmsi"])
 
-    # ── fast filters first
     df = df.filter(
         (F.col("type_of_mobile").isin("Class A")) &
         (F.col("cog") != 511) & (F.col("cog").between(0, 360)) &
@@ -70,7 +54,7 @@ def filter_area_and_time(df):
     )
 
 
-    # ── bounding box
+    # bounding box
     lat_delta = 0.93
     lon_delta = 1.60
 
@@ -79,7 +63,7 @@ def filter_area_and_time(df):
         F.col("longitude").between(CENTER_LON - lon_delta, CENTER_LON + lon_delta)
     )
 
-    # ── haversine filter (only remaining subset)
+    # haversine filter (only remaining subset)
     R = 6371.0
 
     phi1 = F.radians(F.col("latitude"))
@@ -99,7 +83,6 @@ def filter_area_and_time(df):
               .drop("dist_to_center_km")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 def clean_anomalies(df):
     """
     Removes GPS noise + deduplicates into stable time buckets.
