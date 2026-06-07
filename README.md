@@ -19,27 +19,27 @@ To locate two vessels that either collided or experienced the close physical pro
 
 ---
 
-## Repository Structure:
+## Recommended Repository Structure:
 
-├── src
-│   ├── main.py
-│   ├── preprocessing.py
-│   ├── collision.py
-│   └── visualization.py
-│
-├── data
-│   └── raw
-│       └── extracted
-│
-├── output
-│   ├── results.txt
-│   └── collision_trajectory.png
-│
-├── Dockerfile
-├── docker-compose.yml
-├── entrypoint.sh
-├── requirements.txt
-└── README.md
+src
+- main.py
+- preprocessing.py
+- collision.py
+- visualization.py
+
+data
+- raw
+    - extracted
+
+output
+- results.txt
+- collision_trajectory.png
+  
+Dockerfile
+docker-compose.yml
+entrypoint.sh
+requirements.txt
+README.md
 
 ## Data Setup
 
