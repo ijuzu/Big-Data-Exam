@@ -82,6 +82,18 @@ spark-submit \
   /app/src/main.py \
   "/app/data/raw/extracted/aisdk-2021-12-13.csv"
 ```
+ 
+## Docker Image
+
+The Docker image is available on Docker Hub:
+
+ijuzu/ais-collision:latest
+
+### Pull and run:
+
+docker pull ijuzu/ais-collision:latest
+
+docker run --rm ijuzu/ais-collision:latest
 
 ## Output
 Results are written to the output folder:
@@ -149,4 +161,3 @@ Time span : 39 s
 
 ![Collision Trajectory](output/collision_trajectory.png)
 This is marked by the gold star on the image, which marks the closest point between the vessels. Before this collision, KARIN HOEJ was moving in a relatively straight path. MV SCOT CARRIER changed direction, which led them to interfere with the path of the other ship and cause the collision.
-
