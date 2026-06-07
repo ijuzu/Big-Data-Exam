@@ -1,29 +1,3 @@
-"""
-visualization.py
-────────────────
-Renders a publication-quality trajectory map for the two colliding vessels
-over the 20-minute window (±10 min around the collision time).
-
-Map background
-──────────────
-Uses contextily to fetch OpenStreetMap tiles and render them as a basemap.
-Works fully headlessly (no browser, no API key) — tiles are downloaded at
-runtime via HTTP and cached in /tmp by contextily automatically.
-
-If the supercomputer has no outbound internet, set:
-    CONTEXTILY_CACHE=/path/to/prepopulated/tile/cache
-or set USE_BASEMAP=False at the top of this file to fall back to a plain
-grid background.
-
-Colour scheme
-─────────────
-  Blue  → Vessel A
-  Red   → Vessel B
-  Solid line   = approach (pre-collision)
-  Dashed line  = departure (post-collision)
-  Gold star    = collision point
-"""
-
 import matplotlib
 matplotlib.use("Agg")
 
@@ -31,8 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import pandas as pd
 
-# ── Basemap toggle ────────────────────────────────────────────────────────────
-# Set to False if the cluster has no outbound internet access.
+# Set to False if the cluster has no outbound internet access
 USE_BASEMAP = True
 
 if USE_BASEMAP:
@@ -60,13 +33,6 @@ def plot_trajectories(traj_pandas: pd.DataFrame,
                       output_path: str) -> None:
     """
     Generate and save the trajectory visualisation.
-
-    Parameters
-    ----------
-    traj_pandas    : Pandas DataFrame with columns
-                     mmsi, name, timestamp, latitude, longitude, sog
-    collision_info : dict returned by find_collision()
-    output_path    : absolute path for the output PNG
     """
     mmsi1  = collision_info["mmsi1"]
     name1  = collision_info["name1"]
@@ -85,7 +51,7 @@ def plot_trajectories(traj_pandas: pd.DataFrame,
         (mmsi2, name2, "#d62728", "#f5b7b1"),   # red  shades
     ]
 
-    # ── Collect all coordinates for extent calculation ────────────────────────
+    # Collect all coordinates for extent calculation
     all_lons, all_lats = [c_lon], [c_lat]
 
     for mmsi, label, color_pre, color_post in vessel_styles:
@@ -141,14 +107,14 @@ def plot_trajectories(traj_pandas: pd.DataFrame,
                 ax.scatter(post["longitude"].iloc[-1], post["latitude"].iloc[-1],
                            color=color_pre, s=90, marker="v", zorder=5)
 
-    # ── Collision point ───────────────────────────────────────────────────────
+    # Collision point 
     if use_map:
         cx_pt, cy_pt = _to_webmercator([c_lon], [c_lat])
         ax.scatter(cx_pt, cy_pt,
                    color="gold", edgecolors="black", linewidths=1.2,
                    marker="*", s=400, zorder=6, label="Collision point")
         ann_xy    = (cx_pt[0], cy_pt[0])
-        ann_xytext= (cx_pt[0] + 80, cy_pt[0] + 80)   # metres offset in Mercator
+        ann_xytext= (cx_pt[0] + 80, cy_pt[0] + 80)   #meters offset
     else:
         ax.scatter(c_lon, c_lat,
                    color="gold", edgecolors="black", linewidths=1.2,
@@ -172,14 +138,13 @@ def plot_trajectories(traj_pandas: pd.DataFrame,
         zorder=7
     )
 
-    # ── Add OSM basemap ───────────────────────────────────────────────────────
+    # OSM basemap
     if use_map:
         try:
-            # zoom=14 gives city-block resolution; increase for tighter crops
             cx.add_basemap(ax, crs="EPSG:3857",
                            source=cx.providers.OpenStreetMap.Mapnik,
                            zoom=14, alpha=0.7)
-            ax.set_axis_off()   # contextily sets its own axes; hide tick labels
+            ax.set_axis_off()   
         except Exception as e:
             print(f"    [viz] Basemap fetch failed ({e}); continuing without tiles.")
             ax.grid(True, linestyle="--", alpha=0.5)
@@ -190,7 +155,7 @@ def plot_trajectories(traj_pandas: pd.DataFrame,
         ax.set_xlabel("Longitude (°E)", fontsize=11)
         ax.set_ylabel("Latitude (°N)",  fontsize=11)
 
-    # ── Title + legend ────────────────────────────────────────────────────────
+    # Title + legend
     ax.set_title(
         f"Vessel Collision  –  ±10 min window\n"
         f"{name1} ({mmsi1})  vs  {name2} ({mmsi2})\n"
