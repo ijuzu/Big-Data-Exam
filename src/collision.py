@@ -1,53 +1,36 @@
-"""
-collision.py
-────────────
-Grid-bucketed AIS collision detection.
-
-Root-cause note (Karin Høj / Scot Carrier)
-───────────────────────────────────────────
-With GRID_DEG=0.005 (≈5.5 km cells) only 2 ping-pairs from the colliding
-vessels landed in the same cell at overlapping times — not enough to form a
-V-shape.  Fix: widen to GRID_DEG=0.02 (≈2.2 km cells) so the join captures
-more pings per pair, then relax minimum-points and V-shape gates accordingly.
-
-Also: after a real collision vessels may stop, slow, or change heading
-immediately, so has_departure can be 0.  We drop that requirement and instead
-require only has_approach OR a local minimum — one is enough evidence.
-"""
-
 import pyspark.sql.functions as F
 from pyspark.sql.window import Window
 import math
 
-# ── Spatial / temporal bucketing ─────────────────────────────────────────────
-GRID_DEG            = 0.02    # ≈ 2.2 km cells — wider net, more pings per pair
-THRESHOLD_KM        = 0.20    # 200 m first-pass candidate radius
-COLLISION_KM        = 0.15    # 150 m true collision radius
+# Spatial bucketing
+GRID_DEG            = 0.02   
+THRESHOLD_KM        = 0.20    # 200m first-pass candidate radius
+COLLISION_KM        = 0.15    # 150m true collision radius
 TIME_BUCKET_SEC     = 30
 
-# ── Track quality gates ───────────────────────────────────────────────────────
+# Track quality gates 
 MIN_SOG             = 0.5     # knots
-MIN_TIME_SPAN_S     = 0       # off — short encounters are valid
+MIN_TIME_SPAN_S     = 0       # turned off, since short encounters may be more valid than longer ones
 MAX_TIME_SPAN_S   = 1800
-MIN_POINTS          = 2       # need at least 2 ping-pairs
+MIN_POINTS          = 2       # need at least 2 ping pairs
 
-# ── V-shape gates ─────────────────────────────────────────────────────────────
-V_DEPTH_KM          = 0.001   # 5 m minimum distance change
-MIN_CLOSING_SPD     = 0.0 # essentially off
+# V-shape gates 
+V_DEPTH_KM          = 0.001   # minimum distance change
+MIN_CLOSING_SPD     = 0.0 
 
-# ── CPA gate ──────────────────────────────────────────────────────────────────
+# CPA gate
 CPA_T_MAX_S         = 600
 CPA_PARALLEL_EPS    = 1e-10
 CPA_VALID_FRAC      = 0.10    # 10% of pings need valid CPA
 
-# ── Parallel-vessel gates ─────────────────────────────────────────────────────
+# Parallel-vessel gates 
 COG_DIFF_MIN_DEG    = 10.0
 COG_FRAC            = 0.20    # 20% of pings must show heading difference
-DIST_STD_MIN_KM     = 0.001   # 1 m stddev — essentially off
+DIST_STD_MIN_KM     = 0.001   # 1 m stddev 
 
 R_EARTH             = 6371.0
 
-
+# Haversine function to compute distance
 def _haversine(lat1, lon1, lat2, lon2):
     phi1    = F.radians(lat1);  phi2    = F.radians(lat2)
     dphi    = F.radians(lat2 - lat1)
@@ -71,11 +54,10 @@ def _circular_cog_diff(cog_a, cog_b):
 
 def find_collision(df):
     """
-    Detect the most likely collision event in the dataset.
-    Returns dict or None.
+    Detect the most likely collision event in the dataset, returns dict or None.
     """
 
-    # ── 1. Null / SOG guard — no COG filter ───────────────────────────────────
+    # Null / SOG guard,  no COG filter 
     df = df.filter(
         F.col("timestamp").isNotNull() &
         F.col("latitude") .isNotNull() &
@@ -87,7 +69,7 @@ def find_collision(df):
         F.col("longitude").between(-180, 180)
     )
 
-    # Sanitise COG: 360.0 and 511.0 mean "not available" in AIS
+    # Extra filtering for COG
     df = df.withColumn(
         "cog",
         F.when(
@@ -104,7 +86,7 @@ def find_collision(df):
     df = df.filter(
         ~F.lower(F.col("name")).rlike(r"pilot|danpilot|svitzer|\btug\b|loods|lootsman"))
 
-    # ── 2. Grid + time + velocity ──────────────────────────────────────────────
+    # Grid + time + velocity 
     df = (df
           .withColumn("ts",          F.unix_timestamp("timestamp"))
           .withColumn("lat_cell",   (F.col("latitude")  / GRID_DEG).cast("int"))
@@ -117,7 +99,7 @@ def find_collision(df):
     df = df.repartition("lat_cell", "lon_cell").cache()
     df.count()
 
-    # ── 3. Prefix columns ─────────────────────────────────────────────────────
+    # Prefix columns 
     KEEP = ["mmsi", "timestamp", "ts", "latitude", "longitude",
             "sog", "cog", "cog_known", "vx", "vy",
             "name", "lat_cell", "lon_cell", "time_bucket"]
@@ -133,7 +115,7 @@ def find_collision(df):
     )
     vb = df.select([F.col(c).alias(f"vb_{c}") for c in KEEP])
 
-    # ── 4. Equi-join ──────────────────────────────────────────────────────────
+    # Joining
     joined = va.join(
         vb,
         (F.col("va_mmsi")     <  F.col("vb_mmsi"))     &
@@ -142,7 +124,7 @@ def find_collision(df):
         (F.col("va_join_tb")  == F.col("vb_time_bucket"))
     ).drop("va_join_tb")
 
-    # ── 5. Haversine + threshold ───────────────────────────────────────────────
+    # Haversine + threshold 
     joined = joined.withColumn(
         "dist_km",
         _haversine(F.col("va_latitude"), F.col("va_longitude"),
@@ -154,7 +136,7 @@ def find_collision(df):
         "pair_id", F.concat_ws("_", F.col("va_mmsi"), F.col("vb_mmsi"))
     )
 
-    # ── 6. COG diff + CPA per ping-pair ───────────────────────────────────────
+    # COG diff + CPA per ping pair
     close = close.withColumn(
         "cog_diff", _circular_cog_diff(F.col("va_cog"), F.col("vb_cog"))
     )
@@ -205,7 +187,7 @@ def find_collision(df):
         (F.col("cpa_dist_km") <= COLLISION_KM)
     )
 
-    # ── 7. V-shape signals ────────────────────────────────────────────────────
+    # V-shape signals 
     w_pair = Window.partitionBy("pair_id").orderBy("va_timestamp")
     close = (close
              .withColumn("prev_dist",  F.lag ("dist_km").over(w_pair))
@@ -234,7 +216,7 @@ def find_collision(df):
             (F.col("dist_km") < F.col("next_dist")))
     )
 
-    # ── 8. Per-pair aggregation ───────────────────────────────────────────────
+    # Per-pair aggregation 
     pattern = close.groupBy("pair_id", "va_mmsi", "vb_mmsi").agg(
         F.count("*")                                         .alias("n_points"),
         F.sum(F.col("is_local_min").cast("int"))             .alias("num_minima"),
@@ -278,7 +260,7 @@ def find_collision(df):
             (1.0 / (F.col("min_dist") + 1e-6)) * 5.0 +     # stronger proximity weight
             F.pow(F.col("cpa_valid_frac"), 3) * 10.0 +
             F.col("v_depth_km") * 2.0 +               
-            F.col("cog_diff_frac") * 1.5 +                # heading divergence
+            F.col("cog_diff_frac") * 1.5 +                
             F.when(F.col("time_span_s") > 600,  -20.0).otherwise(0.0)))
 
     pattern = pattern.withColumn(
@@ -306,7 +288,7 @@ def find_collision(df):
         "collision_score",
         F.when(collision_signature, F.col("collision_score") * 2.0).otherwise(F.col("collision_score")))
 
-    # Brief acute collision bonus
+    # Collision bonus
     pattern = pattern.withColumn(
         "collision_score",
         F.col("collision_score") +
@@ -317,17 +299,13 @@ def find_collision(df):
             30.0).otherwise(0.0))
     
     
-    # ── 9. Qualification ──────────────────────────────────────────────────────
-    # has_departure is intentionally NOT required:
-    # after a real collision vessels stop/slow/maneuver, so the post-collision
-    # departure signal is often missing from AIS data.
-    # Instead we require: approach OR local minimum (one is sufficient).
+    # Qualification: having approach or local minimum
     qualified = pattern.filter(
         ((F.col("has_approach")   == 1) |
          (F.col("num_minima")     >= 1) |
          (F.col("has_departure")  == 1)) &
         (F.col("n_points")        >= MIN_POINTS)   &
-        (F.col("time_span_s")     <= MAX_TIME_SPAN_S) &   # NEW: cap long-duration proximity
+        (F.col("time_span_s")     <= MAX_TIME_SPAN_S) &   # cap long-duration proximity
         (F.col("min_dist")        <= COLLISION_KM) &
         (F.col("v_depth_km")      >= V_DEPTH_KM)   &
         (F.col("max_closing_spd") >= MIN_CLOSING_SPD) &
@@ -378,7 +356,7 @@ def find_collision(df):
     mmsi1 = r["va_mmsi"]
     mmsi2 = r["vb_mmsi"]
 
-    # ── 11. Closest-approach row ──────────────────────────────────────────────
+    # Closest-approach row
     collision_row = (
         close
         .filter((F.col("va_mmsi") == mmsi1) & (F.col("vb_mmsi") == mmsi2))
