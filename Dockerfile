@@ -1,53 +1,15 @@
-# FROM bitnami/spark:3.5.1
-
-# USER root
-
-# # Install Python and pip
-# RUN apt-get update && apt-get install -y python3-pip && rm -rf /var/lib/apt/lists/*
-
-# # Set working directory
-# WORKDIR /app
-
-# # Copy requirements and install
-# COPY requirements.txt .
-# RUN pip3 install --no-cache-dir -r requirements.txt
-
-# # Copy project files
-# COPY . /app
-
-# # Create a mount point for output
-# RUN mkdir -p /app/output
-
-# # Run job
-# CMD ["spark-submit", "--driver-memory", "4g", "src/main.py"]
-
-# ─────────────────────────────────────────────────────────────────────────────
-# AIS Collision Detection – Docker Image
-# ─────────────────────────────────────────────────────────────────────────────
-# Base: python:3.11-slim  (Debian Bookworm)
-#
-# Why not bitnami/spark?
-#   bitnami/spark includes its own Spark installation.  If we then also
-#   'pip install pyspark', we end up with TWO conflicting Spark installations
-#   and mismatched SPARK_HOME / PATH entries.
-#
-#   Using python:3.11-slim + 'pip install pyspark' gives a single, consistent
-#   Spark runtime.  spark-submit is bundled inside the pyspark package's
-#   bin/ directory and is located at runtime by entrypoint.sh.
-# ─────────────────────────────────────────────────────────────────────────────
-
 FROM python:3.11-slim
 
 # ── System dependencies ───────────────────────────────────────────────────────
 # procps  → provides 'ps', used internally by Spark health checks
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        openjdk-17-jdk-headless \
+        default-jdk-headless \
         procps \
     && rm -rf /var/lib/apt/lists/*
 
 # ── Java environment ──────────────────────────────────────────────────────────
-ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+ENV JAVA_HOME=/usr/lib/jvm/default-java
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
 # ── Python environment ────────────────────────────────────────────────────────
