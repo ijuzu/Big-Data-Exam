@@ -1,0 +1,34 @@
+version: '3.8'
+services:
+  ais-collision:
+    build: .
+    container_name: ais_collision_detection
+    volumes:
+      # Mount the local ./data folder into the container (read-only).
+      # Place your extracted CSV files under  ./data/raw/extracted/
+      - ./data:/app/data:ro
+      # Results (collision_trajectory.png + results.txt) appear in ./output
+      - ./output:/app/output
+    environment:
+      - OUTPUT_DIR=/app/output
+
+    # ── Default: run on a single day (fastest test) ──────────────────────────
+    # Change the glob to cover more days, e.g.
+    #   "/app/data/raw/extracted/*.csv"          ← all 31 days
+    #   "/app/data/raw/extracted/aisdk-2021-12-0[12].csv"  ← Dec 1–2 only
+    command: >
+      spark-submit
+      --master local[*]
+      --driver-memory 4g
+      --conf spark.sql.shuffle.partitions=50
+      /app/src/main.py
+      "/app/data/raw/extracted/aisdk-2021-12-01.csv"
+
+    # ── Full-month run (uncomment, comment out the block above) ───────────────
+    # command: >
+    #   spark-submit
+    #   --master local[*]
+    #   --driver-memory 8g
+    #   --conf spark.sql.shuffle.partitions=200
+    #   /app/src/main.py
+    #   "/app/data/raw/extracted/*.csv"

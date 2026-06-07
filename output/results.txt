@@ -1,0 +1,13 @@
+COLLISION DETECTION RESULTS
+========================================
+
+Vessel A  : KARIN HOEJ
+MMSI A    : 219021240
+Vessel B  : MV SCOT CARRIER
+MMSI B    : 232018267
+Timestamp : 2021-12-13 02:26:30 UTC
+Latitude  : 55.224260
+Longitude : 14.245933
+Distance  : 137.6 m
+CPA hits  : 2 ping-pairs
+Time span : 39 s
