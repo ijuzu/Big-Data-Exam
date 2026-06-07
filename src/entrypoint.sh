@@ -1,16 +1,8 @@
 #!/bin/bash
-# entrypoint.sh
-# ─────────────────────────────────────────────────────────────────────────────
-# Dynamically locates the PySpark installation so that spark-submit is found
-# in PATH at container runtime, regardless of where pip installed pyspark.
-#
-# This avoids hard-coding a Python version or site-packages path in the
-# Dockerfile (which would break if the base image is updated).
-# ─────────────────────────────────────────────────────────────────────────────
 
 set -euo pipefail
 
-# Discover where pip installed pyspark (works for any Python version)
+# Discover where pip installed pyspark 
 SPARK_HOME=$(python3 -c "
 import pyspark, os
 print(os.path.dirname(pyspark.__file__))
