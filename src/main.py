@@ -1,12 +1,3 @@
-"""
-Usage (inside container):
-  spark-submit --master local[*] --driver-memory 4g src/main.py
-  spark-submit --master local[*] --driver-memory 4g src/main.py /app/data/raw/extracted/aisdk-2021-12-01.csv
-  spark-submit --master local[*] --driver-memory 4g src/main.py "/app/data/raw/extracted/aisdk-2021-12-0[12].csv"
-
-If no path argument is given, all CSV files in the default directory are used.
-"""
-
 import os
 import sys
 
@@ -73,7 +64,7 @@ def main():
         spark.stop()
         sys.exit(1)
 
-    # ── Stage 4: Collision detection ─────────────────────────────────────────
+    # Collision detection 
     print(">>> [4/5] Running grid-bucketed collision search …")
     collision_info = find_collision(clean_df)
 
@@ -87,7 +78,7 @@ def main():
 
     dist_m = round(collision_info["distance_km"] * 1000, 1)
 
-    # Format timestamp cleanly for display
+    # Format timestamp cleanly 
     collision_ts = collision_info["collision_time"]
     collision_ts_str = (
         collision_ts.strftime("%Y-%m-%d %H:%M:%S UTC")
@@ -102,7 +93,7 @@ def main():
     print(f"  MMSI A    : {collision_info['mmsi1']}")
     print(f"  Vessel B  : {collision_info['name2']}")
     print(f"  MMSI B    : {collision_info['mmsi2']}")
-    print(f"  Timestamp : {collision_ts_str}")          # ← collision time
+    print(f"  Timestamp : {collision_ts_str}")          
     print(f"  Latitude  : {collision_info['lat']:.6f}")
     print(f"  Longitude : {collision_info['lon']:.6f}")
     print(f"  Distance  : {dist_m} m")
@@ -110,7 +101,7 @@ def main():
     print(f"  Time span : {collision_info['time_span_s']} s")
     print(f"{SEP}\n")
 
-    # ── Stage 5: Trajectories + visualisation ────────────────────────────────
+    # Trajectories + visualisation
     print(">>> [5/5] Extracting ±10-min trajectories and rendering map …")
     traj_pandas = get_trajectories(clean_df, collision_info)
     print(f"    Trajectory points : {len(traj_pandas)}")
@@ -118,7 +109,7 @@ def main():
     plot_path = os.path.join(output_dir, "collision_trajectory.png")
     plot_trajectories(traj_pandas, collision_info, plot_path)
 
-    # ── Persist text results ──────────────────────────────────────────────────
+    # Text results 
     results_path = os.path.join(output_dir, "results.txt")
     with open(results_path, "w") as f:
         f.write("COLLISION DETECTION RESULTS\n")
@@ -127,7 +118,7 @@ def main():
         f.write(f"MMSI A    : {collision_info['mmsi1']}\n")
         f.write(f"Vessel B  : {collision_info['name2']}\n")
         f.write(f"MMSI B    : {collision_info['mmsi2']}\n")
-        f.write(f"Timestamp : {collision_ts_str}\n")      # ← collision time
+        f.write(f"Timestamp : {collision_ts_str}\n")      
         f.write(f"Latitude  : {collision_info['lat']:.6f}\n")
         f.write(f"Longitude : {collision_info['lon']:.6f}\n")
         f.write(f"Distance  : {dist_m} m\n")
