@@ -19,26 +19,26 @@ To locate two vessels that either collided or experienced the close physical pro
 
 ---
 
-## Repository Structure
+## Repository Structure:
 
-├── src/
-│   ├── main.py               # Pipeline entry point (Spark job)
-│   ├── preprocessing.py      # Data cleaning, filtering, anomaly removal
-│   ├── collision.py          # Collision detection logic (grid + CPA)
-│   └── visualization.py      # Trajectory plotting (Matplotlib)
-│
-├── data/
-│   └── raw/extracted/        # AIS CSV files (Dec 2021)
-│
-├── output/
-│   ├── results.txt
-│   └── collision_trajectory.png
-│
-├── Dockerfile
-├── docker-compose.yml
-├── entrypoint.sh
-├── requirements.txt
-└── README.md
+src/
+  main.py               # Pipeline entry point (Spark job)
+  preprocessing.py      # Data cleaning, filtering, anomaly removal
+  collision.py          # Collision detection logic (grid + CPA)
+  visualization.py      # Trajectory plotting (Matplotlib)
+
+data/
+  raw/extracted/        # AIS CSV files (Dec 2021)
+
+output/
+  results.txt
+  collision_trajectory.png
+
+Dockerfile
+docker-compose.yml
+entrypoint.sh
+requirements.txt
+README.md
 
 ## Data Setup
 
